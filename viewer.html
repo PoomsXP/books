@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PDF Flipbook Viewer</title>
+  <title>PDF Flipbook Viewer with StPageFlip</title>
   <style>
     body {
       background: #f2f2f2;
@@ -17,11 +17,11 @@
       height: 600px;
       box-shadow: 0 0 20px rgba(0,0,0,0.3);
       background: white;
-      display: block;
     }
-    #flipbook canvas {
+    canvas {
       display: block;
-      max-width: 100%;
+      width: 100%;
+      height: auto;
     }
   </style>
 </head>
@@ -29,51 +29,40 @@
 
   <div id="flipbook"></div>
 
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-  <!-- Turn.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
-
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- StPageFlip -->
+  <script src="https://cdn.jsdelivr.net/npm/stpageflip/dist/stpageflip.min.js"></script>
 
   <script>
-    // Setup workerSrc for PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    // Get URL parameter helper
+    // Helper to get URL parameter
     function getQueryParam(name) {
       return new URLSearchParams(window.location.search).get(name);
     }
 
-    // Render one page of PDF to canvas
+    // Render one page to canvas (promise)
     async function renderPage(pdf, pageNum) {
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      const ctx = canvas.getContext("2d");
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      await page.render({ canvasContext: context, viewport }).promise;
       return canvas;
     }
 
-    // Load PDF and create flipbook
     async function loadFlipbook(pdfUrl) {
       try {
         const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-        const flipbook = $("#flipbook");
         const pages = [];
 
+        // Render each page to a canvas
         for (let i = 1; i <= pdf.numPages; i++) {
           const canvas = await renderPage(pdf, i);
-          const pageDiv = $("<div></div>").css({
-            width: canvas.width + "px",
-            height: canvas.height + "px",
-            overflow: "hidden"
-          }).append(canvas);
-          pages.push(pageDiv);
+          pages.push(canvas);
         }
 
         if (pages.length === 0) {
@@ -81,27 +70,27 @@
           return;
         }
 
-        flipbook.append(pages);
-
-        // Use numeric width/height from first page div for turn.js container size
-        const pageWidth = pages[0][0].offsetWidth;
-        const pageHeight = pages[0][0].offsetHeight;
-
-        flipbook.turn({
-          width: pageWidth * 2,
-          height: pageHeight,
-          autoCenter: true,
-          elevation: 50,
-          gradients: true,
+        // Initialize StPageFlip with the rendered canvases
+        const flipbook = new St.PageFlip(document.getElementById("flipbook"), {
+          width: pages[0].width,
+          height: pages[0].height,
+          size: "fixed",
+          maxShadowOpacity: 0.5,
+          showCover: true,
+          mobileScrollSupport: false,
         });
+
+        // Load canvases as pages
+        flipbook.loadFromImages(pages);
+
       } catch (e) {
         alert("Failed to load PDF: " + e.message);
         console.error(e);
       }
     }
 
-    // Initialize on DOM ready
-    $(function () {
+    // On DOM ready
+    window.onload = () => {
       const pdfUrl = getQueryParam("pdf");
       const title = getQueryParam("title");
 
@@ -115,7 +104,7 @@
       }
 
       loadFlipbook(decodeURIComponent(pdfUrl));
-    });
+    };
   </script>
 </body>
 </html>
