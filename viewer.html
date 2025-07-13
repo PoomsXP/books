@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reading...</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background: #f4f0e6;
+      font-family: 'Georgia', serif;
+      margin: 0;
+      padding: 0;
+    }
+    .book-viewer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    .book-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    iframe {
+      width: 90%;
+      height: 90vh;
+      border: 2px solid #ccc;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="book-viewer">
+    <div class="book-title" id="bookTitle">Loading...</div>
+    <iframe id="pdfFrame" src=""></iframe>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const title = urlParams.get('title');
+    const pdf = urlParams.get('pdf');
+
+    document.getElementById('bookTitle').textContent = title || 'Untitled';
+    document.getElementById('pdfFrame').src = pdf;
+  </script>
+</body>
+</html>
