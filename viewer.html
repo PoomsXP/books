@@ -1,104 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Book Viewer</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  </script>
-
-  <style>
-    body {
-      background: #fefcf7;
-      font-family: 'Georgia', serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    #bookTitle {
-      margin: 1rem;
-      font-size: 1.5rem;
-    }
-
-    #flipbook {
-      width: 800px;
-      height: 600px;
-    }
-
-    .page {
-      width: 400px;
-      height: 600px;
-      background: white;
-      overflow: hidden;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
-      display: block;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF Flipbook Viewer</title>
+<style>
+  body {
+    background: #f2f2f2;
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 20px;
+    display: flex;
+    justify-content: center;
+  }
+  #flipbook {
+    width: 800px;
+    height: 600px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    background: white;
+  }
+</style>
 </head>
 <body>
-  <div id="bookTitle">Loading...</div>
-  <div id="flipbook"></div>
 
-  <!-- Libraries -->
-  <script src="lib/jquery.min.js"></script>
-  <script src="lib/pdf.js"></script>
-  <script src="lib/turn.min.js"></script>
+<div id="flipbook"></div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const title = params.get('title');
-    const pdfUrl = params.get('pdf');
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-    document.getElementById('bookTitle').textContent = title || "Untitled";
+<!-- Turn.js for flipbook effect -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 
-    const flipbook = document.getElementById('flipbook');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.js';
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-    pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
-      const total = pdf.numPages;
+<script>
+  // Tell PDF.js where the worker script lives
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-      const loadPage = (pageNum) => {
-        return pdf.getPage(pageNum).then(page => {
-          const viewport = page.getViewport({ scale: 1.5 });
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+  // Helper: get URL param
+  function getQueryParam(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
 
-          return page.render({ canvasContext: context, viewport }).promise.then(() => {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'page';
-            wrapper.appendChild(canvas);
-            flipbook.appendChild(wrapper);
-          });
-        });
-      };
+  // Render one page to canvas
+  async function renderPage(pdf, pageNum) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    return canvas;
+  }
 
-      const promises = [];
-      for (let i = 1; i <= total; i++) {
-        promises.push(loadPage(i));
+  // Load PDF and render all pages into flipbook
+  async function loadFlipbook(pdfUrl) {
+    try {
+      const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+      const flipbook = $("#flipbook");
+      const pages = [];
+
+      for(let i = 1; i <= pdf.numPages; i++) {
+        const canvas = await renderPage(pdf, i);
+        const pageDiv = $("<div></div>").css({
+          width: canvas.width,
+          height: canvas.height,
+          overflow: "hidden"
+        }).append(canvas);
+        pages.push(pageDiv);
       }
 
-      Promise.all(promises).then(() => {
-        $('#flipbook').turn({
-          width: 800,
-          height: 600,
-          autoCenter: true,
-          elevation: 50,
-          gradients: true,
-          duration: 1000
-        });
+      flipbook.append(pages);
+
+      // Initialize turn.js flipbook
+      flipbook.turn({
+        width: pages[0].width() * 2,
+        height: pages[0].height(),
+        autoCenter: true,
+        elevation: 50,
+        gradients: true,
       });
-    });
-  </script>
+
+    } catch (e) {
+      alert("Failed to load PDF: " + e.message);
+      console.error(e);
+    }
+  }
+
+  // On DOM ready
+  $(function() {
+    const pdfUrl = getQueryParam("pdf");
+    const title = getQueryParam("title");
+
+    if (title) {
+      document.title = decodeURIComponent(title);
+    }
+
+    if (!pdfUrl) {
+      alert("No PDF specified. Add ?pdf=path/to/file.pdf in URL.");
+      return;
+    }
+
+    loadFlipbook(decodeURIComponent(pdfUrl));
+  });
+</script>
+
 </body>
 </html>
