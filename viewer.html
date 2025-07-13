@@ -1,48 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Reading...</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Book Viewer</title>
+  <link rel="stylesheet" href="style.css">
   <style>
     body {
-      background: #f4f0e6;
+      background: #fefcf7;
       font-family: 'Georgia', serif;
       margin: 0;
       padding: 0;
-    }
-    .book-viewer {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1rem;
     }
-    .book-title {
+
+    #bookTitle {
+      margin: 1rem;
       font-size: 1.5rem;
-      margin-bottom: 1rem;
     }
-    iframe {
-      width: 90%;
-      height: 90vh;
-      border: 2px solid #ccc;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+
+    #flipbook {
+      width: 800px;
+      height: 600px;
+    }
+
+    .page {
+      width: 400px;
+      height: 600px;
       background: white;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <div class="book-viewer">
-    <div class="book-title" id="bookTitle">Loading...</div>
-    <iframe id="pdfFrame" src=""></iframe>
-  </div>
+  <div id="bookTitle">Loading...</div>
+  <div id="flipbook"></div>
+
+  <!-- Libraries -->
+  <script src="lib/jquery.min.js"></script>
+  <script src="lib/pdf.js"></script>
+  <script src="lib/turn.min.js"></script>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const title = urlParams.get('title');
-    const pdf = urlParams.get('pdf');
+    const params = new URLSearchParams(window.location.search);
+    const title = params.get('title');
+    const pdfUrl = params.get('pdf');
 
-    document.getElementById('bookTitle').textContent = title || 'Untitled';
-    document.getElementById('pdfFrame').src = pdf;
+    document.getElementById('bookTitle').textContent = title || "Untitled";
+
+    const flipbook = document.getElementById('flipbook');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.js';
+
+    pdfjsLib.getDocument(pdfUrl).promise.then(pdf => {
+      const total = pdf.numPages;
+
+      const loadPage = (pageNum) => {
+        return pdf.getPage(pageNum).then(page => {
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          return page.render({ canvasContext: context, viewport }).promise.then(() => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'page';
+            wrapper.appendChild(canvas);
+            flipbook.appendChild(wrapper);
+          });
+        });
+      };
+
+      const promises = [];
+      for (let i = 1; i <= total; i++) {
+        promises.push(loadPage(i));
+      }
+
+      Promise.all(promises).then(() => {
+        $('#flipbook').turn({
+          width: 800,
+          height: 600,
+          autoCenter: true,
+          elevation: 50,
+          gradients: true,
+          duration: 1000
+        });
+      });
+    });
   </script>
 </body>
 </html>
