@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PDF Flipbook Viewer with StPageFlip</title>
+  <title>PDF Flipbook Viewer with Turn.js</title>
   <style>
     body {
       background: #f2f2f2;
@@ -18,6 +18,11 @@
       box-shadow: 0 0 20px rgba(0,0,0,0.3);
       background: white;
     }
+    #flipbook > div {
+      width: 400px;
+      height: 600px;
+      overflow: hidden;
+    }
     canvas {
       display: block;
       width: 100%;
@@ -29,82 +34,79 @@
 
   <div id="flipbook"></div>
 
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- Turn.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- StPageFlip -->
-  <script src="https://cdn.jsdelivr.net/npm/stpageflip/dist/stpageflip.min.js"></script>
 
   <script>
+    // Set PDF.js workerSrc
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    // Helper to get URL parameter
+    // Helper: get URL param "pdf"
     function getQueryParam(name) {
       return new URLSearchParams(window.location.search).get(name);
     }
 
-    // Render one page to canvas (promise)
+    // Render one PDF page to canvas
     async function renderPage(pdf, pageNum) {
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
+      const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      await page.render({ canvasContext: context, viewport }).promise;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
       return canvas;
     }
 
+    // Load PDF and create flipbook pages
     async function loadFlipbook(pdfUrl) {
       try {
         const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-        const pages = [];
+        const flipbook = $("#flipbook");
+        flipbook.empty();
 
-        // Render each page to a canvas
+        // For each page, create a div and append rendered canvas inside
         for (let i = 1; i <= pdf.numPages; i++) {
           const canvas = await renderPage(pdf, i);
-          pages.push(canvas);
+          const pageDiv = $("<div></div>")
+            .css({
+              width: canvas.width / 2 + "px",
+              height: canvas.height + "px",
+              overflow: "hidden"
+            })
+            .append(canvas);
+          flipbook.append(pageDiv);
         }
 
-        if (pages.length === 0) {
-          alert("PDF has no pages.");
-          return;
-        }
-
-        // Initialize StPageFlip with the rendered canvases
-        const flipbook = new St.PageFlip(document.getElementById("flipbook"), {
-          width: pages[0].width,
-          height: pages[0].height,
-          size: "fixed",
-          maxShadowOpacity: 0.5,
-          showCover: true,
-          mobileScrollSupport: false,
+        // Initialize Turn.js
+        flipbook.turn({
+          width: 800,
+          height: 600,
+          autoCenter: true,
+          display: 'double',
+          acceleration: true,
+          gradients: true,
+          elevation: 50
         });
 
-        // Load canvases as pages
-        flipbook.loadFromImages(pages);
-
-      } catch (e) {
-        alert("Failed to load PDF: " + e.message);
-        console.error(e);
+      } catch (error) {
+        alert("Failed to load PDF: " + error.message);
+        console.error(error);
       }
     }
 
-    // On DOM ready
-    window.onload = () => {
+    $(document).ready(function() {
       const pdfUrl = getQueryParam("pdf");
-      const title = getQueryParam("title");
-
-      if (title) {
-        document.title = decodeURIComponent(title);
-      }
-
       if (!pdfUrl) {
-        alert("No PDF specified. Add ?pdf=URL to the viewer.html");
+        alert("Please specify a PDF with ?pdf=URL");
         return;
       }
-
       loadFlipbook(decodeURIComponent(pdfUrl));
-    };
+    });
   </script>
 </body>
 </html>
