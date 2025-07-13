@@ -17,6 +17,11 @@
       height: 600px;
       box-shadow: 0 0 20px rgba(0,0,0,0.3);
       background: white;
+      display: block;
+    }
+    #flipbook canvas {
+      display: block;
+      max-width: 100%;
     }
   </style>
 </head>
@@ -28,7 +33,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
   <!-- Turn.js -->
-  <script src="https://cdn.jsdelivr.net/npm/turn.js@4.1.0/turn.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -64,18 +69,27 @@
         for (let i = 1; i <= pdf.numPages; i++) {
           const canvas = await renderPage(pdf, i);
           const pageDiv = $("<div></div>").css({
-            width: canvas.width,
-            height: canvas.height,
+            width: canvas.width + "px",
+            height: canvas.height + "px",
             overflow: "hidden"
           }).append(canvas);
           pages.push(pageDiv);
         }
 
+        if (pages.length === 0) {
+          alert("PDF has no pages.");
+          return;
+        }
+
         flipbook.append(pages);
 
+        // Use numeric width/height from first page div for turn.js container size
+        const pageWidth = pages[0][0].offsetWidth;
+        const pageHeight = pages[0][0].offsetHeight;
+
         flipbook.turn({
-          width: pages[0].width() * 2,
-          height: pages[0].height(),
+          width: pageWidth * 2,
+          height: pageHeight,
           autoCenter: true,
           elevation: 50,
           gradients: true,
